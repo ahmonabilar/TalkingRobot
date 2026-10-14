@@ -25,6 +25,11 @@ const LANGUAGES: Record<string, VoiceLanguage> = {
   p: { code: "pt", name: "Brazilian Portuguese", espeak: "pt-br" },
 }
 
+// Kokoro has no Polish voices, so Polish borrows Spanish ones, whose clear vowels and rolled r suit it best.
+const POLISH: VoiceLanguage = { code: "pl", name: "Polish", espeak: "pl" }
+const POLISH_SUFFIX = "@pl"
+const POLISH_VOICES = ["ef_dora", "em_alex"].map((voice) => voice + POLISH_SUFFIX)
+
 const EXTRA_VOICES = [
   "ef_dora",
   "em_alex",
@@ -42,7 +47,12 @@ const EXTRA_VOICES = [
 ]
 
 export function voiceLanguage(voice: string): VoiceLanguage {
+  if (voice.endsWith(POLISH_SUFFIX)) return POLISH
   return LANGUAGES[voice[0]] ?? LANGUAGES.a
+}
+
+function voiceFile(voice: string) {
+  return voice.replace(POLISH_SUFFIX, "") as KokoroVoice
 }
 
 type ProgressEvent = {
@@ -128,7 +138,7 @@ export function createSpeaker(
 
   const ready = loadEngine().then((tts) => {
     engine = tts
-    voiceList = [...Object.keys(tts.voices), ...EXTRA_VOICES]
+    voiceList = [...Object.keys(tts.voices), ...EXTRA_VOICES, ...POLISH_VOICES]
     if (!voiceList.includes(voice)) voice = (voiceList[0] as KokoroVoice | undefined) ?? voice
   })
 
@@ -198,7 +208,10 @@ export function createSpeaker(
         return withTimeout(synthesize(engine, sentence, voice), 30000)
       }
       let ahead = synthNext()
-      while (ahead && myToken === token) {
+      while (myToken === token) {
+        // A sentence can arrive while the last clip plays, after the look-ahead already found the queue empty.
+        ahead ??= synthNext()
+        if (!ahead) break
         pending += 1
         try {
           const audio = await ahead
@@ -280,7 +293,7 @@ async function synthesize(engine: KokoroTTS, sentence: string, voice: KokoroVoic
   if (!language) return engine.generate(sentence, { voice }) as Promise<SpeechAudio>
   // generate() rejects voices outside the English list, but generate_from_ids() loads any voice file by name.
   const { input_ids } = engine.tokenizer(await phonemize(sentence, language), { truncation: true })
-  return engine.generate_from_ids(input_ids, { voice }) as Promise<SpeechAudio>
+  return engine.generate_from_ids(input_ids, { voice: voiceFile(voice) }) as Promise<SpeechAudio>
 }
 
 function matchRate(input: Float32Array, fromRate: number, toRate: number) {

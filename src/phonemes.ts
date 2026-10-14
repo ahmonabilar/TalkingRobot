@@ -7,15 +7,20 @@ const MERGED: Array<[string, string]> = [
   ["a\u200dɪ", "I"],
   ["a\u200dʊ", "W"],
   ["d\u200dz", "ʣ"],
+  ["d\u200dʑ", "ʥ"],
   ["d\u200dʒ", "ʤ"],
   ["e\u200dɪ", "A"],
   ["o\u200dʊ", "O"],
   ["ə\u200dʊ", "Q"],
   ["s\u200ds", "S"],
   ["t\u200ds", "ʦ"],
+  ["t\u200dɕ", "ʨ"],
   ["t\u200dʃ", "ʧ"],
   ["ɔ\u200dɪ", "Y"],
 ]
+
+// Kokoro's vocabulary has no ʑ outside the ʥ affricate, and the tokenizer silently drops unknown symbols.
+const SUBSTITUTED: Array<[string, string]> = [["ʑ", "ʒ"]]
 
 const PUNCTUATION = /(\s*[;:,.!?¡¿—…"«»“”।]+\s*)+/g
 
@@ -52,6 +57,7 @@ async function run(text: string, language: string): Promise<string> {
 function clean(phonemes: string) {
   let out = phonemes.replace(/\([a-z-]+\)/g, "").replace(/\s+/g, " ").trim()
   for (const [tied, single] of MERGED) out = out.replaceAll(tied, single)
+  for (const [missing, nearest] of SUBSTITUTED) out = out.replaceAll(missing, nearest)
   return out.replace(/\u200d|-/g, "")
 }
 

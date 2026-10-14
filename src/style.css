@@ -25,12 +25,45 @@ body {
   color: var(--text);
 }
 
-main {
-  width: min(920px, calc(100% - 32px));
+.layout {
+  width: min(1200px, calc(100% - 32px));
   margin: 0 auto;
   padding: 28px 0 48px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
+  align-items: start;
+}
+
+main {
+  min-width: 0;
+  display: grid;
   gap: 16px;
+}
+
+.settings {
+  position: sticky;
+  top: 28px;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+
+.settings h2 {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.settings select,
+.settings button {
+  background: var(--bg);
 }
 
 header h1 {
@@ -113,10 +146,8 @@ canvas {
 }
 
 .composer {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  display: flex;
   gap: 10px;
-  align-items: end;
 }
 
 label {
@@ -124,12 +155,6 @@ label {
   gap: 6px;
   color: var(--muted);
   font-size: 0.78rem;
-}
-
-.ask-row {
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 10px;
 }
 
 input,
@@ -178,10 +203,18 @@ button:disabled {
   color: var(--amber);
 }
 
-@media (max-width: 720px) {
-  .composer {
+@media (max-width: 900px) {
+  .layout {
     grid-template-columns: 1fr;
   }
+
+  .settings {
+    position: static;
+    order: -1;
+  }
+}
+
+@media (max-width: 720px) {
 
   .bubble {
     max-width: 100%;

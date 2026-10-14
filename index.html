@@ -7,22 +7,36 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <p class="eyebrow">On this computer</p>
-        <h1>Talking Robot</h1>
-        <p id="status" role="status">Waking up</p>
-      </header>
+    <div class="layout">
+      <main>
+        <header>
+          <p class="eyebrow">On this computer</p>
+          <h1>Talking Robot</h1>
+          <p id="status" role="status">Waking up</p>
+        </header>
 
-      <section class="stage">
-        <canvas id="face" aria-label="Animated robot face"></canvas>
-      </section>
+        <section class="stage">
+          <canvas id="face" aria-label="Animated robot face"></canvas>
+        </section>
 
-      <section id="log" class="log" aria-live="polite">
-        <p class="empty">Ask a question by talking, or type one below.</p>
-      </section>
+        <section id="log" class="log" aria-live="polite">
+          <p class="empty">Ask a question by talking, or type one below.</p>
+        </section>
 
-      <form id="composer" class="composer">
+        <form id="composer" class="composer">
+          <input
+            id="text"
+            name="text"
+            type="text"
+            autocomplete="off"
+            placeholder="Or type a question"
+          />
+          <button id="ask" type="submit">Ask</button>
+        </form>
+      </main>
+
+      <aside class="settings" aria-label="Settings">
+        <h2>Settings</h2>
         <label>
           Model
           <select id="model" name="model"></select>
@@ -34,18 +48,8 @@
           </select>
         </label>
         <button id="voice-toggle" class="ghost" type="button">Start voice</button>
-        <div class="ask-row">
-          <input
-            id="text"
-            name="text"
-            type="text"
-            autocomplete="off"
-            placeholder="Or type a question"
-          />
-          <button id="ask" type="submit">Ask</button>
-        </div>
-      </form>
-    </main>
+      </aside>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
