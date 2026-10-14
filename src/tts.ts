@@ -1,9 +1,49 @@
 import "./polyfills"
 import { KokoroTTS } from "kokoro-js"
+import { phonemize, preloadPhonemizer } from "./phonemes"
 
 type KokoroVoice = keyof KokoroTTS["voices"]
 
 const MODEL = "onnx-community/Kokoro-82M-v1.0-ONNX"
+
+export type VoiceLanguage = {
+  // ISO 639-1 code, as Whisper expects it.
+  code: string
+  name: string
+  // eSpeak voice for languages the built-in kokoro-js phonemizer cannot handle.
+  espeak?: string
+}
+
+// Kokoro voice names start with a letter for their language.
+const LANGUAGES: Record<string, VoiceLanguage> = {
+  a: { code: "en", name: "American English" },
+  b: { code: "en", name: "British English" },
+  e: { code: "es", name: "Spanish", espeak: "es" },
+  f: { code: "fr", name: "French", espeak: "fr-fr" },
+  h: { code: "hi", name: "Hindi", espeak: "hi" },
+  i: { code: "it", name: "Italian", espeak: "it" },
+  p: { code: "pt", name: "Brazilian Portuguese", espeak: "pt-br" },
+}
+
+const EXTRA_VOICES = [
+  "ef_dora",
+  "em_alex",
+  "em_santa",
+  "ff_siwis",
+  "hf_alpha",
+  "hf_beta",
+  "hm_omega",
+  "hm_psi",
+  "if_sara",
+  "im_nicola",
+  "pf_dora",
+  "pm_alex",
+  "pm_santa",
+]
+
+export function voiceLanguage(voice: string): VoiceLanguage {
+  return LANGUAGES[voice[0]] ?? LANGUAGES.a
+}
 
 type ProgressEvent = {
   status?: string
@@ -88,7 +128,7 @@ export function createSpeaker(
 
   const ready = loadEngine().then((tts) => {
     engine = tts
-    voiceList = Object.keys(tts.voices)
+    voiceList = [...Object.keys(tts.voices), ...EXTRA_VOICES]
     if (!voiceList.includes(voice)) voice = (voiceList[0] as KokoroVoice | undefined) ?? voice
   })
 
@@ -155,7 +195,7 @@ export function createSpeaker(
       const synthNext = (): Promise<SpeechAudio> | null => {
         const sentence = queue.shift()
         if (!sentence || !engine) return null
-        return withTimeout(engine.generate(sentence, { voice }) as Promise<SpeechAudio>, 30000)
+        return withTimeout(synthesize(engine, sentence, voice), 30000)
       }
       let ahead = synthNext()
       while (ahead && myToken === token) {
@@ -198,7 +238,9 @@ export function createSpeaker(
       return voiceList
     },
     setVoice(next: string) {
-      if (voiceList.includes(next)) voice = next as KokoroVoice
+      if (!voiceList.includes(next)) return
+      voice = next as KokoroVoice
+      if (voiceLanguage(next).espeak) preloadPhonemizer()
     },
     enqueue(sentence: string) {
       const trimmed = sentence.trim()
@@ -231,6 +273,14 @@ export function createSpeaker(
       return new Promise((resolve) => idleWaiters.push(resolve))
     },
   }
+}
+
+async function synthesize(engine: KokoroTTS, sentence: string, voice: KokoroVoice): Promise<SpeechAudio> {
+  const language = voiceLanguage(voice).espeak
+  if (!language) return engine.generate(sentence, { voice }) as Promise<SpeechAudio>
+  // generate() rejects voices outside the English list, but generate_from_ids() loads any voice file by name.
+  const { input_ids } = engine.tokenizer(await phonemize(sentence, language), { truncation: true })
+  return engine.generate_from_ids(input_ids, { voice }) as Promise<SpeechAudio>
 }
 
 function matchRate(input: Float32Array, fromRate: number, toRate: number) {

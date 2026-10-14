@@ -11,6 +11,7 @@
   "dependencies": {
     "@huggingface/transformers": "^3.7.6",
     "@ricky0123/vad-web": "^0.0.30",
+    "espeak-ng": "^1.0.2",
     "kokoro-js": "^1.2.1",
     "three": "^0.180.0"
   },

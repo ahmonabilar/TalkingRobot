@@ -3,8 +3,9 @@ export type ChatMessage = {
   content: string
 }
 
-const SYSTEM =
-  "You are a friendly robot speaking out loud to one person. Answer in one to three short spoken sentences. Do not use markdown, lists, emojis, or stage directions."
+function systemPrompt(language: string) {
+  return `You are a friendly robot speaking out loud to one person. Answer in one to three short spoken sentences. Do not use markdown, lists, emojis, or stage directions. Always answer in ${language}, written in its usual script.`
+}
 
 const NOT_CHAT = /(flux|z-image|embed|ocr|klein|stable-diffusion|sdxl)/i
 const DEFAULT_MODEL = "Llama3.2:latest"
@@ -58,7 +59,7 @@ export function takeSentences(
     rest = rest.slice(at).trimStart()
   }
   while (true) {
-    const match = rest.match(/^(.*?[.!?])(?:\s+|$)/s)
+    const match = rest.match(/^(.*?[.!?।])(?:\s+|$)/s)
     if (!match) break
     const sentence = match[1].trim()
     if (sentence) sentences.push(sentence)
@@ -74,6 +75,7 @@ export function takeSentences(
 export function createChat() {
   const history: ChatMessage[] = []
   let model = DEFAULT_MODEL
+  let language = "English"
 
   return {
     get model() {
@@ -81,6 +83,9 @@ export function createChat() {
     },
     setModel(next: string) {
       model = next
+    },
+    setLanguage(next: string) {
+      language = next
     },
     // Preload the model into memory (no generation) so the first real turn is
     // not slowed by a cold start. Sending empty messages just loads the model.
@@ -128,7 +133,7 @@ export function createChat() {
             model,
             stream: true,
             keep_alive: KEEP_ALIVE,
-            messages: [{ role: "system", content: SYSTEM }, ...history],
+            messages: [{ role: "system", content: systemPrompt(language) }, ...history],
             options: { temperature: 0.6, num_predict: NUM_PREDICT },
           }),
         })

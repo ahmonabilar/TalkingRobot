@@ -1,7 +1,7 @@
 import { env } from "@huggingface/transformers"
 import { createChat } from "./chat"
 import { createFace, type FaceState } from "./face"
-import { createSpeaker } from "./tts"
+import { createSpeaker, voiceLanguage } from "./tts"
 import { createTranscriber } from "./stt"
 import type { TurnListener } from "./turns"
 
@@ -271,8 +271,15 @@ modelSelect.addEventListener("change", () => {
   void chat.warmUp()
 })
 
+function useVoice(voice: string) {
+  speaker.setVoice(voice)
+  const language = voiceLanguage(voice)
+  transcriber.setLanguage(language.code)
+  chat.setLanguage(language.name)
+}
+
 voiceSelect.addEventListener("change", () => {
-  speaker.setVoice(voiceSelect.value)
+  useVoice(voiceSelect.value)
 })
 
 function wakeAudio() {
@@ -284,12 +291,17 @@ function wakeAudio() {
 window.addEventListener("pointerdown", wakeAudio)
 window.addEventListener("keydown", wakeAudio)
 
-function fillSelect(select: HTMLSelectElement, values: string[], selected: string) {
+function fillSelect(
+  select: HTMLSelectElement,
+  values: string[],
+  selected: string,
+  label: (value: string) => string = (value) => value,
+) {
   select.replaceChildren()
   for (const value of values) {
     const option = document.createElement("option")
     option.value = value
-    option.textContent = value
+    option.textContent = label(value)
     option.selected = value === selected
     select.append(option)
   }
@@ -311,8 +323,13 @@ async function boot() {
     })
 
   const voice = speaker.ready.then(() => {
-    fillSelect(voiceSelect, speaker.voices(), speaker.voices()[0] ?? "af_heart")
-    speaker.setVoice(voiceSelect.value)
+    fillSelect(
+      voiceSelect,
+      speaker.voices(),
+      speaker.voices()[0] ?? "af_heart",
+      (voice) => `${voice} (${voiceLanguage(voice).name})`,
+    )
+    useVoice(voiceSelect.value)
   })
 
   const ear = transcriber.ready
