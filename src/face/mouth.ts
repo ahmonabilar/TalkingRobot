@@ -111,8 +111,9 @@ export class RobotMouth {
     const power = THREE.MathUtils.lerp(1, shape.power, jaw)
     this.writeMouth(halfW, upper, lower, power)
 
-    const smileMix = 1 - THREE.MathUtils.smoothstep(jaw, 0.06, 0.24)
-    const talkMix = THREE.MathUtils.smoothstep(jaw, 0.045, 0.2)
+    const speechHold = THREE.MathUtils.smoothstep(this.talk, 0.15, 0.6)
+    const smileMix = (1 - THREE.MathUtils.smoothstep(jaw, 0.06, 0.24)) * (1 - speechHold)
+    const talkMix = Math.max(THREE.MathUtils.smoothstep(jaw, 0.045, 0.2), speechHold)
     const restDim = 1 - pose.sleeping * 0.7
     const smileCurve = (1 + pose.happy * 0.45) * (1 - pose.error * 1.65)
     this.smile.scale.set(1 + pose.happy * 0.08, smileCurve, 1)
