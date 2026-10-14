@@ -1,0 +1,5 @@
+node_modules
+dist
+public/vad
+.DS_Store
+*.local

@@ -1,0 +1,22 @@
+{
+  "name": "talking-robot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-assets.mjs",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.7.6",
+    "@ricky0123/vad-web": "^0.0.30",
+    "kokoro-js": "^1.2.1",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.180.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.10"
+  }
+}

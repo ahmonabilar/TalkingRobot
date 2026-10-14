@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Talking Robot</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">On this computer</p>
+        <h1>Talking Robot</h1>
+        <p id="status" role="status">Waking up</p>
+      </header>
+
+      <section class="stage">
+        <canvas id="face" aria-label="Animated robot face"></canvas>
+      </section>
+
+      <section id="log" class="log" aria-live="polite">
+        <p class="empty">Ask a question by talking, or type one below.</p>
+      </section>
+
+      <form id="composer" class="composer">
+        <label>
+          Model
+          <select id="model" name="model"></select>
+        </label>
+        <label>
+          Voice
+          <select id="voice" name="voice" disabled>
+            <option>Loading voice…</option>
+          </select>
+        </label>
+        <button id="voice-toggle" class="ghost" type="button">Start voice</button>
+        <div class="ask-row">
+          <input
+            id="text"
+            name="text"
+            type="text"
+            autocomplete="off"
+            placeholder="Or type a question"
+          />
+          <button id="ask" type="submit">Ask</button>
+        </div>
+      </form>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
