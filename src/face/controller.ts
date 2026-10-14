@@ -12,7 +12,6 @@ export class RobotFaceController {
   private speaking = false
   private amplitude = 0
   private amplitudeTarget = 0
-  private amplitudeDrivenUntil = 0
   private blink = 0
   private blinkDirection = 0
   private nextBlink = 2.6
@@ -63,10 +62,7 @@ export class RobotFaceController {
   }
 
   setSpeechAmplitude(value: number) {
-    const level = THREE.MathUtils.clamp(value, 0, 1)
-    if (level < 0.045) return
-    this.amplitudeTarget = level
-    this.amplitudeDrivenUntil = performance.now() + 140
+    this.amplitudeTarget = THREE.MathUtils.clamp(value, 0, 1)
   }
 
   update(dt: number, elapsed: number, lookX: number, lookY: number) {
@@ -84,7 +80,7 @@ export class RobotFaceController {
     const happy = this.weights.happy
 
     this.updateBlink(dt, elapsed, sleeping)
-    this.updateMouth(dt, elapsed)
+    this.updateMouth(dt)
     this.updatePose(dt, elapsed, lookX, lookY, listening, thinking, speaking, this.amplitude)
 
     const openness = (1 - sleeping * 0.96) * (1 - this.blink * 0.94)
@@ -127,18 +123,9 @@ export class RobotFaceController {
     }
   }
 
-  private updateMouth(dt: number, elapsed: number) {
-    const driven = performance.now() < this.amplitudeDrivenUntil
-    let target = 0
-    if (this.speaking) {
-      if (driven) target = this.amplitudeTarget
-      else {
-        const syllable = Math.pow(Math.sin(elapsed * 8.2) ** 2, 0.55)
-        const accent = 0.42 + 0.58 * (0.5 + 0.5 * Math.sin(elapsed * 2.6))
-        target = syllable * accent
-      }
-    }
-    const speed = target < this.amplitude ? 26 : 12
+  private updateMouth(dt: number) {
+    const target = this.speaking ? this.amplitudeTarget : 0
+    const speed = target < this.amplitude ? 26 : 32
     this.amplitude = THREE.MathUtils.damp(this.amplitude, target, speed, dt)
   }
 

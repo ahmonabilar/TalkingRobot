@@ -66,6 +66,15 @@ type SpeechAudio = {
   sampling_rate: number
 }
 
+type Clip = {
+  envelope: Float32Array
+  startAt: number
+}
+
+const ENVELOPE_FRAME = 0.01
+// The jaw eases toward its target, so reading slightly ahead lands each opening on its syllable.
+const MOUTH_LEAD = 0.03
+
 export type Speaker = {
   ready: Promise<void>
   unlock: () => void
@@ -85,14 +94,10 @@ export function createSpeaker(
   let voiceList: string[] = [voice]
   // Safari plays silence from a context whose rate differs from the system's, so clips are resampled instead.
   const context = new AudioContext()
-  const analyser = context.createAnalyser()
-  analyser.fftSize = 1024
-  analyser.smoothingTimeConstant = 0.35
-  analyser.connect(context.destination)
-  const samples = new Uint8Array(analyser.fftSize)
 
   let engine: KokoroTTS | null = null
   let current: AudioBufferSourceNode | null = null
+  let clip: Clip | null = null
   let token = 0
   let playing = false
   let pending = 0
@@ -144,14 +149,16 @@ export function createSpeaker(
 
   function level() {
     if (!monitoring) return
-    analyser.getByteTimeDomainData(samples)
-    let peak = 0
-    for (let i = 0; i < samples.length; i++) {
-      const centered = Math.abs(samples[i] - 128) / 128
-      if (centered > peak) peak = centered
-    }
-    onLevel(Math.min(1, peak * 2.1))
+    onLevel(clip ? heardLevel(clip) : 0)
     requestAnimationFrame(level)
+  }
+
+  // currentTime is the sample being rendered now; the listener hears it only after the output latency.
+  function heardLevel({ envelope, startAt }: Clip) {
+    const latency = (context.outputLatency || 0) + (context.baseLatency || 0)
+    const position = context.currentTime - latency - startAt + MOUTH_LEAD
+    const frame = Math.floor(position / ENVELOPE_FRAME)
+    return frame >= 0 && frame < envelope.length ? envelope[frame] : 0
   }
 
   function settle() {
@@ -170,18 +177,22 @@ export function createSpeaker(
     buffer.copyToChannel(data, 0)
     const source = context.createBufferSource()
     source.buffer = buffer
-    source.connect(analyser)
+    source.connect(context.destination)
     current = source
+    const sentenceClip: Clip = { envelope: loudness(data, context.sampleRate), startAt: 0 }
     await new Promise<void>((resolve) => {
       const timeout = window.setTimeout(resolve, (buffer.duration + 0.35) * 1000)
       source.onended = () => {
         window.clearTimeout(timeout)
         resolve()
       }
-      source.start()
+      sentenceClip.startAt = context.currentTime
+      source.start(sentenceClip.startAt)
+      clip = sentenceClip
       onAudioStart?.()
     })
     if (current === source) current = null
+    if (clip === sentenceClip) clip = null
   }
 
   async function pump(myToken: number) {
@@ -194,12 +205,6 @@ export function createSpeaker(
       await ready
       // resume() never settles until the page gets a click, so it must not block the queue.
       void context.resume().catch(() => undefined)
-      try {
-        analyser.disconnect()
-      } catch {
-        // The analyser is reconnected below.
-      }
-      analyser.connect(context.destination)
       // Synthesize one sentence ahead: while the current clip plays, the next
       // clip is already being generated, so there is no silent gap between them.
       const synthNext = (): Promise<SpeechAudio> | null => {
@@ -273,6 +278,7 @@ export function createSpeaker(
         // Already stopped.
       }
       current = null
+      clip = null
       playing = false
       pumping = false
       settle()
@@ -294,6 +300,24 @@ async function synthesize(engine: KokoroTTS, sentence: string, voice: KokoroVoic
   // generate() rejects voices outside the English list, but generate_from_ids() loads any voice file by name.
   const { input_ids } = engine.tokenizer(await phonemize(sentence, language), { truncation: true })
   return engine.generate_from_ids(input_ids, { voice: voiceFile(voice) }) as Promise<SpeechAudio>
+}
+
+// Loudness per 10 ms frame, scaled so the loudest syllable of the clip opens the mouth fully.
+function loudness(data: Float32Array, rate: number) {
+  const size = Math.max(1, Math.round(rate * ENVELOPE_FRAME))
+  const envelope = new Float32Array(Math.ceil(data.length / size))
+  let loudest = 0
+  for (let frame = 0; frame < envelope.length; frame++) {
+    const start = frame * size
+    const end = Math.min(start + size, data.length)
+    let sum = 0
+    for (let i = start; i < end; i++) sum += data[i] * data[i]
+    envelope[frame] = Math.sqrt(sum / (end - start))
+    loudest = Math.max(loudest, envelope[frame])
+  }
+  const scale = loudest > 0 ? 1 / (loudest * 0.8) : 0
+  for (let frame = 0; frame < envelope.length; frame++) envelope[frame] = Math.min(1, envelope[frame] * scale)
+  return envelope
 }
 
 function matchRate(input: Float32Array, fromRate: number, toRate: number) {
