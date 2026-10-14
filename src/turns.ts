@@ -30,11 +30,29 @@ export async function createTurnListener(handlers: {
   let userPaused = false
   let heldForSpeech = false
   let active = false
+  let stream: MediaStream | null = null
   // Browsers keep a context made before a click suspended, so the app has to resume it after one.
   const context = new AudioContext()
 
   function wake() {
     if (context.state !== "running") void context.resume().catch(() => undefined)
+  }
+
+  async function openMic() {
+    stream = await navigator.mediaDevices.getUserMedia(MIC)
+    return stream
+  }
+
+  function closeMic() {
+    stream?.getTracks().forEach((track) => track.stop())
+  }
+
+  // MicVAD breaks if start and pause overlap: a pause during start's getUserMedia leaves a second source connected.
+  let queue: Promise<void> = Promise.resolve()
+  function serial(task: () => Promise<void>) {
+    const run = queue.then(task)
+    queue = run.catch(() => undefined)
+    return run
   }
 
   const vad = await MicVAD.new({
@@ -47,16 +65,14 @@ export async function createTurnListener(handlers: {
     positiveSpeechThreshold: 0.4,
     negativeSpeechThreshold: 0.2,
     preSpeechPadMs: 1000,
-    redemptionMs: 600,
+    redemptionMs: 1200,
     minSpeechMs: 250,
-    getStream: () => navigator.mediaDevices.getUserMedia(MIC),
+    getStream: openMic,
     // The microphone stays open while the robot talks, so reopening it does not clip the next words.
-    pauseStream: async (stream) => {
-      if (userPaused) stream.getTracks().forEach((track) => track.stop())
-    },
-    resumeStream: async (stream) => {
-      const live = stream.getAudioTracks().some((track) => track.readyState === "live")
-      return live ? stream : navigator.mediaDevices.getUserMedia(MIC)
+    pauseStream: async () => undefined,
+    resumeStream: async (current) => {
+      const live = current.getAudioTracks().some((track) => track.readyState === "live")
+      return live ? current : openMic()
     },
     ortConfig(ort) {
       // One thread keeps this runtime off the worker pool shared with Whisper and Kokoro.
@@ -92,27 +108,34 @@ export async function createTurnListener(handlers: {
     get active() {
       return active
     },
-    async start() {
-      userPaused = false
-      await listen()
-    },
-    async pauseByUser() {
-      userPaused = true
-      active = false
-      await vad.pause()
-    },
-    async resumeByUser() {
-      userPaused = false
-      await listen()
-    },
-    async pauseForSpeech() {
-      heldForSpeech = true
-      active = false
-      await vad.pause()
-    },
-    async resumeAfterSpeech() {
-      heldForSpeech = false
-      await listen()
-    },
+    start: () =>
+      serial(async () => {
+        userPaused = false
+        await listen()
+      }),
+    pauseByUser: () =>
+      serial(async () => {
+        userPaused = true
+        active = false
+        await vad.pause()
+        // The VAD may already be paused for speech, so the microphone is closed here rather than in pauseStream.
+        closeMic()
+      }),
+    resumeByUser: () =>
+      serial(async () => {
+        userPaused = false
+        await listen()
+      }),
+    pauseForSpeech: () =>
+      serial(async () => {
+        heldForSpeech = true
+        active = false
+        await vad.pause()
+      }),
+    resumeAfterSpeech: () =>
+      serial(async () => {
+        heldForSpeech = false
+        await listen()
+      }),
   }
 }

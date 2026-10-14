@@ -186,7 +186,7 @@ async function ask(text: string, existingGen?: number) {
       logTurnTimer()
       face.setMouth(0)
       setMode("idle")
-      if (turns && !turns.userPaused) await turns.resumeAfterSpeech()
+      if (turns) await turns.resumeAfterSpeech()
       updateVoiceButton()
       renderStatus()
     }
@@ -228,7 +228,7 @@ async function askFromAudio(audio: Float32Array) {
       turnMarks = null
       face.setMouth(0)
       setMode("idle")
-      if (turns && !turns.userPaused) await turns.resumeAfterSpeech()
+      if (turns) await turns.resumeAfterSpeech()
       updateVoiceButton()
       renderStatus()
     }
