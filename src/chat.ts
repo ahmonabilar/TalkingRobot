@@ -3,8 +3,10 @@ export type ChatMessage = {
   content: string
 }
 
+let today = new Date().toISOString().split('T')[0];
+
 function systemPrompt(language: string) {
-  return `You are a friendly robot speaking out loud to one person. Answer in one to three short spoken sentences. Do not use markdown, lists, emojis, or stage directions. Always answer in ${language}, written in its usual script.`
+  return `Today is ${today}. You are a friendly robot speaking out loud to one person. Answer in one to three short spoken sentences. Do not use markdown, lists, emojis, or stage directions. Always answer in ${language}, written in its usual script.`
 }
 
 const NOT_CHAT = /(flux|z-image|embed|ocr|klein|stable-diffusion|sdxl)/i
