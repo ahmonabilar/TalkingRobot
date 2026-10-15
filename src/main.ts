@@ -1,7 +1,7 @@
 import { env } from "@huggingface/transformers"
 import { createChat } from "./chat"
 import { createFace, type FaceState } from "./face"
-import { createSpeaker, voiceLanguage } from "./tts"
+import { createSpeaker, voiceGender, voiceLanguage, type Gender } from "./tts"
 import { createTranscriber } from "./stt"
 import type { TurnListener } from "./turns"
 
@@ -13,6 +13,7 @@ const logEl = document.querySelector<HTMLElement>("#log")!
 const form = document.querySelector<HTMLFormElement>("#composer")!
 const textInput = document.querySelector<HTMLInputElement>("#text")!
 const modelSelect = document.querySelector<HTMLSelectElement>("#model")!
+const genderSelect = document.querySelector<HTMLSelectElement>("#gender")!
 const voiceSelect = document.querySelector<HTMLSelectElement>("#voice")!
 const voiceButton = document.querySelector<HTMLButtonElement>("#voice-toggle")!
 const canvas = document.querySelector<HTMLCanvasElement>("#face")!
@@ -278,6 +279,24 @@ function useVoice(voice: string) {
   chat.setLanguage(language.name)
 }
 
+function applyGender(gender: Gender) {
+  face.setGender(gender)
+  const matching = speaker.voices().filter((voice) => voiceGender(voice) === gender)
+  if (matching.length === 0) return
+  const current = voiceSelect.value
+  // Keep the current voice if it still matches, else stay in the same language where possible.
+  const selected =
+    (current && voiceGender(current) === gender && current) ||
+    matching.find((voice) => voiceLanguage(voice).code === voiceLanguage(current).code) ||
+    matching[0]
+  fillSelect(voiceSelect, matching, selected, (voice) => `${voice} (${voiceLanguage(voice).name})`)
+  useVoice(voiceSelect.value)
+}
+
+genderSelect.addEventListener("change", () => {
+  applyGender(genderSelect.value as Gender)
+})
+
 voiceSelect.addEventListener("change", () => {
   useVoice(voiceSelect.value)
 })
@@ -310,6 +329,8 @@ function fillSelect(
 
 async function boot() {
   renderStatus()
+  // Color the robot for the selected gender before the voices finish loading.
+  face.setGender(genderSelect.value as Gender)
   const models = chat
     .listModels()
     .then((names) => {
@@ -323,13 +344,7 @@ async function boot() {
     })
 
   const voice = speaker.ready.then(() => {
-    fillSelect(
-      voiceSelect,
-      speaker.voices(),
-      speaker.voices()[0] ?? "af_heart",
-      (voice) => `${voice} (${voiceLanguage(voice).name})`,
-    )
-    useVoice(voiceSelect.value)
+    applyGender(genderSelect.value as Gender)
   })
 
   const ear = transcriber.ready

@@ -4,8 +4,48 @@ import { createEyeTexture, createSoftGlowTexture } from "./textures"
 
 export type RobotMaterials = ReturnType<typeof createRobotMaterials>
 
+export type Gender = "female" | "male"
+
+// Accent colors that change with the robot's gender. The eye lens color/emissive
+// and the eye glow color are driven per-frame in eyes.ts, so they live there.
+type Palette = {
+  domeColor: number
+  domeEmissive: number
+  bezelColor: number
+  bezelEmissive: number
+  earGlowColor: number
+  earGlowEmissive: number
+}
+
+const PALETTES: Record<Gender, Palette> = {
+  male: {
+    domeColor: 0x1c74e6,
+    domeEmissive: 0x0a2c66,
+    bezelColor: 0x12384a,
+    bezelEmissive: 0x1ecfff,
+    earGlowColor: 0x9af6ff,
+    earGlowEmissive: 0x3ce4ff,
+  },
+  female: {
+    domeColor: 0xe0439a,
+    domeEmissive: 0x661038,
+    bezelColor: 0x3a1230,
+    bezelEmissive: 0xff5ec4,
+    earGlowColor: 0xffb0dc,
+    earGlowEmissive: 0xff4fb0,
+  },
+}
+
 export function createRobotMaterials(bin: ResourceBin) {
-  const eyeMap = bin.tex(createEyeTexture())
+  const eyeMaps: Record<Gender, THREE.Texture> = {
+    male: bin.tex(createEyeTexture("male")),
+    female: bin.tex(createEyeTexture("female")),
+  }
+  const eyeGlowMaps: Record<Gender, THREE.Texture> = {
+    male: bin.tex(createSoftGlowTexture("male")),
+    female: bin.tex(createSoftGlowTexture("female")),
+  }
+  const eyeMap = eyeMaps.male
 
   const shell = bin.mat(new THREE.MeshPhysicalMaterial({
     color: 0xf7f8fb,
@@ -94,7 +134,7 @@ export function createRobotMaterials(bin: ResourceBin) {
   }))
 
   const eyeGlow = bin.mat(new THREE.MeshBasicMaterial({
-    map: bin.tex(createSoftGlowTexture()),
+    map: eyeGlowMaps.male,
     color: new THREE.Color().setRGB(0.35, 0.9, 1.15, THREE.LinearSRGBColorSpace),
     transparent: true,
     opacity: 0.55,
@@ -112,5 +152,23 @@ export function createRobotMaterials(bin: ResourceBin) {
     toneMapped: false,
   }))
 
-  return { shell, blue, visor, bezel, seam, dark, darker, smile, earGlow, eye, eyeGlow, scan, eyeMap }
+  return { shell, blue, visor, bezel, seam, dark, darker, smile, earGlow, eye, eyeGlow, scan, eyeMap, eyeMaps, eyeGlowMaps }
+}
+
+// Repaints the gender-colored accents on existing materials without recreating them.
+export function applyPalette(materials: RobotMaterials, gender: Gender) {
+  const palette = PALETTES[gender]
+  materials.blue.color.setHex(palette.domeColor)
+  materials.blue.emissive.setHex(palette.domeEmissive)
+  materials.bezel.color.setHex(palette.bezelColor)
+  materials.bezel.emissive.setHex(palette.bezelEmissive)
+  materials.earGlow.color.setHex(palette.earGlowColor)
+  materials.earGlow.emissive.setHex(palette.earGlowEmissive)
+
+  const eyeMap = materials.eyeMaps[gender]
+  materials.eye.map = eyeMap
+  materials.eye.emissiveMap = eyeMap
+  materials.eye.needsUpdate = true
+  materials.eyeGlow.map = materials.eyeGlowMaps[gender]
+  materials.eyeGlow.needsUpdate = true
 }

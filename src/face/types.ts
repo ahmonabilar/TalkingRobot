@@ -2,8 +2,11 @@ export type FaceState = "idle" | "listening" | "thinking" | "speaking" | "happy"
 
 export type FaceExpression = "neutral" | "happy" | "sleeping" | "error"
 
+export type Gender = "female" | "male"
+
 export type FaceController = {
   setState: (state: FaceState) => void
+  setGender: (gender: Gender) => void
   setExpression: (expression: FaceExpression) => void
   setSpeaking: (isSpeaking: boolean) => void
   setSpeechAmplitude: (value: number) => void

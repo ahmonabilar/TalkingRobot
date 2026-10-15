@@ -51,6 +51,14 @@ export function voiceLanguage(voice: string): VoiceLanguage {
   return LANGUAGES[voice[0]] ?? LANGUAGES.a
 }
 
+export type Gender = "female" | "male"
+
+// Kokoro voice names encode gender in their second letter: "af_heart" is female,
+// "am_adam" is male, and the Polish voices (e.g. "em_alex@pl") follow the same pattern.
+export function voiceGender(voice: string): Gender {
+  return voice[1] === "m" ? "male" : "female"
+}
+
 function voiceFile(voice: string) {
   return voice.replace(POLISH_SUFFIX, "") as KokoroVoice
 }
@@ -205,12 +213,16 @@ export function createSpeaker(
       await ready
       // resume() never settles until the page gets a click, so it must not block the queue.
       void context.resume().catch(() => undefined)
+      // Lock the voice for this whole reply. Reading `voice` live would let a
+      // mid-reply switch splice two voices into one answer (and resynthesize the
+      // look-ahead in a second voice); a change now takes effect on the next reply.
+      const replyVoice = voice
       // Synthesize one sentence ahead: while the current clip plays, the next
       // clip is already being generated, so there is no silent gap between them.
       const synthNext = (): Promise<SpeechAudio> | null => {
         const sentence = queue.shift()
         if (!sentence || !engine) return null
-        return withTimeout(synthesize(engine, sentence, voice), 30000)
+        return withTimeout(synthesize(engine, sentence, replyVoice), 30000)
       }
       let ahead = synthNext()
       while (myToken === token) {
@@ -256,9 +268,30 @@ export function createSpeaker(
       return voiceList
     },
     setVoice(next: string) {
-      if (!voiceList.includes(next)) return
+      if (!voiceList.includes(next) || next === voice) return
       voice = next as KokoroVoice
       if (voiceLanguage(next).espeak) preloadPhonemizer()
+      // Nothing is speaking, so the new voice is picked up by the next reply.
+      if (!pumping) return
+      // A reply is mid-flight. Drop the clip playing now and the one already
+      // synthesized ahead (both in the old voice), then re-speak whatever is still
+      // queued in the new voice. The running pump stands down on the token bump.
+      token += 1
+      pending = 0
+      try {
+        current?.stop()
+      } catch {
+        // Already stopped.
+      }
+      current = null
+      clip = null
+      pumping = false
+      if (queue.length > 0) {
+        void pump(token)
+      } else {
+        playing = false
+        settle()
+      }
     },
     enqueue(sentence: string) {
       const trimmed = sentence.trim()

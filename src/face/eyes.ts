@@ -7,10 +7,20 @@ import type { ResourceBin } from "./resources"
 const FACING = new THREE.Vector3(0, 0, 1)
 const idleTint = new THREE.Color(0xffffff)
 const errorTint = new THREE.Color(0xff5a32)
-const idleEmissive = new THREE.Color(0x8af4ff)
 const errorEmissive = new THREE.Color(0xff4a28)
-const idleGlow = new THREE.Color().setRGB(0.2, 0.85, 1.2, THREE.LinearSRGBColorSpace)
 const errorGlow = new THREE.Color().setRGB(1.3, 0.28, 0.08, THREE.LinearSRGBColorSpace)
+
+type Gender = "female" | "male"
+
+// Per-gender idle colors for the eye lens emissive and the soft glow halo.
+const IDLE_EMISSIVE: Record<Gender, THREE.Color> = {
+  male: new THREE.Color(0x8af4ff),
+  female: new THREE.Color(0xff8fe0),
+}
+const IDLE_GLOW: Record<Gender, THREE.Color> = {
+  male: new THREE.Color().setRGB(0.2, 0.85, 1.2, THREE.LinearSRGBColorSpace),
+  female: new THREE.Color().setRGB(1.2, 0.35, 0.85, THREE.LinearSRGBColorSpace),
+}
 
 export type EyePose = {
   openness: number
@@ -28,6 +38,8 @@ export class RobotEyes {
   private readonly pivots: THREE.Group[] = []
   private readonly bases: THREE.Vector3[] = []
   private readonly quaternions: THREE.Quaternion[] = []
+  private idleEmissive = IDLE_EMISSIVE.male
+  private idleGlow = IDLE_GLOW.male
 
   constructor(bin: ResourceBin, materials: RobotMaterials) {
     for (const side of [-1, 1]) {
@@ -53,6 +65,11 @@ export class RobotEyes {
       this.pivots.push(pivot)
       this.group.add(eye)
     }
+  }
+
+  setGender(gender: Gender) {
+    this.idleEmissive = IDLE_EMISSIVE[gender]
+    this.idleGlow = IDLE_GLOW[gender]
   }
 
   update(pose: EyePose) {
@@ -88,9 +105,9 @@ export class RobotEyes {
     const scanMaterial = (pivot.children[2] as THREE.Mesh).material as THREE.MeshBasicMaterial
 
     lensMaterial.color.copy(idleTint).lerp(errorTint, error)
-    lensMaterial.emissive.copy(idleEmissive).lerp(errorEmissive, error)
+    lensMaterial.emissive.copy(this.idleEmissive).lerp(errorEmissive, error)
     lensMaterial.emissiveIntensity = 1.15 + brightness * 0.95
-    glowMaterial.color.copy(idleGlow).lerp(errorGlow, error)
+    glowMaterial.color.copy(this.idleGlow).lerp(errorGlow, error)
     glowMaterial.opacity = 0.22 + brightness * 0.2
     scanMaterial.opacity = 0.35 + brightness * 0.25
   }

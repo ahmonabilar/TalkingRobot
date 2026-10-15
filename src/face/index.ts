@@ -9,13 +9,19 @@ import { RobotFaceController } from "./controller"
 import { RobotEyes } from "./eyes"
 import { RobotHead } from "./head"
 import { BLOOM_LAYER } from "./layout"
-import { createRobotMaterials } from "./materials"
+import { applyPalette, createRobotMaterials } from "./materials"
 import { RobotMouth } from "./mouth"
 import { ResourceBin } from "./resources"
 import { createBackdropTexture } from "./textures"
-import type { FaceController, FaceExpression, FaceState } from "./types"
+import type { FaceController, FaceExpression, FaceState, Gender } from "./types"
 
-export type { FaceController, FaceExpression, FaceState }
+export type { FaceController, FaceExpression, FaceState, Gender }
+
+// Rim light tints: cyan for the male robot, pink for the female robot.
+const RIM_COLORS: Record<Gender, { rim: number; rimRight: number }> = {
+  male: { rim: 0x5adfff, rimRight: 0x8fd4ff },
+  female: { rim: 0xff5ac8, rimRight: 0xff8fd4 },
+}
 
 export function createFace(canvas: HTMLCanvasElement): FaceController {
   const bin = new ResourceBin()
@@ -118,6 +124,12 @@ export function createFace(canvas: HTMLCanvasElement): FaceController {
   const api: FaceController = {
     setState(state) {
       face.setState(state)
+    },
+    setGender(gender) {
+      applyPalette(materials, gender)
+      eyes.setGender(gender)
+      rim.color.setHex(RIM_COLORS[gender].rim)
+      rimRight.color.setHex(RIM_COLORS[gender].rimRight)
     },
     setExpression(expression) {
       face.setExpression(expression)
